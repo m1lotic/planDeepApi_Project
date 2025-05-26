@@ -29,7 +29,7 @@ public class UserController {
     public void login(@RequestBody UserLoginRequest request, HttpServletRequest httpRequest) {
         UserResponse user = userService.login(request);
         HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("loginEmail", user);
+        session.setAttribute("loginEmail", user.getEmail());
     }
 
     @GetMapping
