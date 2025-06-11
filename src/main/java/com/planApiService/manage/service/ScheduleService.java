@@ -4,6 +4,7 @@ import com.planApiService.manage.dto.request.ScheduleCreateRequest;
 import com.planApiService.manage.dto.response.ScheduleResponse;
 import com.planApiService.manage.entity.Schedule;
 import com.planApiService.manage.entity.User;
+import com.planApiService.manage.jwt.JwtUtil;
 import com.planApiService.manage.repository.ScheduleRepository;
 import com.planApiService.manage.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
@@ -20,12 +21,12 @@ public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
     @Transactional
-    public void createSchedule(ScheduleCreateRequest requestDto, HttpSession session) {
+    public void createSchedule(ScheduleCreateRequest requestDto, String token) {
         // 로그인 유저 확인
-        String email = (String) session.getAttribute("loginEmail");
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(jwtUtil.getEmailFromToken(token))
                 .orElseThrow(() -> new RuntimeException("유저가 존재하지 않습니다."));
 
         Schedule schedule = Schedule.builder()

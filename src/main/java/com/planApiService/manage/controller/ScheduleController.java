@@ -21,8 +21,8 @@ public class ScheduleController {
     private final HttpSession session; //비즈니스 로직은 서비스 레이어에서 체크
 
     @PostMapping
-    public void createSchedule(@RequestBody @Valid ScheduleCreateRequest request, HttpServletRequest httpRequest) {
-        scheduleService.createSchedule(request, session);
+    public void createSchedule(@RequestBody @Valid ScheduleCreateRequest request, @RequestHeader("Authorization") String token) {
+        scheduleService.createSchedule(request, token);
     }
 
     @GetMapping

@@ -1,13 +1,18 @@
 package com.planApiService.manage.service;
 
+import com.planApiService.manage.config.LoginRateLimiter;
 import com.planApiService.manage.config.PasswordEncoder;
 import com.planApiService.manage.entity.User;
 import com.planApiService.manage.dto.request.UserLoginRequest;
 import com.planApiService.manage.dto.request.UserSignupRequest;
 import com.planApiService.manage.dto.response.UserResponse;
+import com.planApiService.manage.exception.LoginFailedException;
+import com.planApiService.manage.jwt.JwtUtil;
 import com.planApiService.manage.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +26,8 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final LoginRateLimiter loginRateLimiter;
 
     @Transactional
     public UserResponse signup(UserSignupRequest request) {
@@ -30,7 +37,12 @@ public class UserService {
                 .email(request.getEmail())
                 .password(encoded)
                 .build();
-        User savedUser = userRepository.save(user);
+        User savedUser = null;
+        try {
+           savedUser = userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            // 중복된 가입 요청
+        }
 
         return new UserResponse(savedUser);
     }
@@ -54,7 +66,6 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다. id=" + id));
 
         user.updateUser(request.getUsername(), request.getEmail(), request.getPassword());
-        // updateUser 메서드는 User entity에 만들어야 합니다.
 
         return new UserResponse(user);
     }
@@ -64,20 +75,19 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    public UserResponse login(UserLoginRequest request) {
-        Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
 
-        if (userOpt.isEmpty()) {
-            throw new IllegalArgumentException("이메일 혹은 비밀번호가 일치하지 않습니다.");
-        }
-        User user = userOpt.get();
+    public String login(UserLoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new LoginFailedException("이메일이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED));
 
-
-        //평문을 받아 해시화 후 저장된 해시값과 비교.
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("이메일 혹은 비밀번호가 일치하지 않습니다.");
+            throw new LoginFailedException("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED);
         }
 
-        return new UserResponse(user);
+        if (!loginRateLimiter.isAllowed(request.getEmail())) { //요청 과부하
+            throw new LoginFailedException("잠시 후 다시 시도해주세요.", HttpStatus.UNAUTHORIZED);
+        }
+
+        return jwtUtil.generateToken(user.getEmail(), user.getId());
     }
 }

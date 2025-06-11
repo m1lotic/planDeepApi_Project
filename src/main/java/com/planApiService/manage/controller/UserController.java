@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,15 +23,14 @@ public class UserController {
 
     @PostMapping("/register")
     public void register(@RequestBody @Valid UserSignupRequest request) {
-        System.out.println("asd");
         userService.signup(request);
     }
 
     @PostMapping("/login")
-    public void login(@RequestBody UserLoginRequest request, HttpServletRequest httpRequest) {
-        UserResponse user = userService.login(request);
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("loginEmail", user.getEmail());
+    public ResponseEntity<String> login(@RequestBody UserLoginRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(userService.login(request));
     }
 
     @GetMapping
